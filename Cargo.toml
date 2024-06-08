@@ -1,0 +1,17 @@
+[package]
+
+name = "vocaltract"
+version = "0.1.0"
+
+[[bin]]
+name = "vocaltract"
+
+[dependencies]
+piston = "1.0.0"
+piston2d-graphics = "0.44.0"
+pistoncore-glutin_window = "0.72.0"
+piston2d-opengl_graphics = "0.85.0"
+ndarray = "0.15.6"
+ndarray-npy = "0.8.1"
+soloud = "1.0.5"
+enterpolation = "0.2.1"
