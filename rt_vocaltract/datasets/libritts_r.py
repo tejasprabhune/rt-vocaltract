@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torchaudio
 from torch.utils.data import Dataset
 
+
 class LibriTTSRDataset(Dataset):
     MAX_WAV_LEN = 1052164
     MAX_FEAT_LEN = 2191
@@ -25,7 +26,7 @@ class LibriTTSRDataset(Dataset):
         self.feats = sorted(list(self.feat_root.glob("*.npy")))
 
         print("--- loaded LibriTTS_R dataset ---")
-    
+
     def __len__(self):
         return len(list(self.wav_root.glob("*.wav")))
 
@@ -46,13 +47,23 @@ class LibriTTSRDataset(Dataset):
         feat = torch.from_numpy(feat).float()
 
         wav_pad = torch.zeros(1, self.MAX_WAV_LEN - wav.shape[1])
-        wav = torch.cat([wav, wav_pad], dim=1)
+        wav = torch.cat([wav_pad, wav], dim=1)
 
-        feat_pad = torch.zeros(self.MAX_FEAT_LEN - feat.shape[0], feat.shape[1])
-        feat = torch.cat([feat, feat_pad], dim=0)
+        feat = LibriTTSRDataset.pad_feat(feat)
 
         return wav, feat
     
+    @classmethod
+    def pad_feat(cls, feat, device=None):
+        if len(feat.shape) == 2:
+            feat_pad = torch.zeros(cls.MAX_FEAT_LEN - feat.shape[0], feat.shape[1])
+            return torch.cat([feat_pad, feat], dim=0)
+        else:
+            feat_pad = torch.zeros(feat.shape[0], cls.MAX_FEAT_LEN - feat.shape[1], feat.shape[2])
+            feat_pad = feat_pad.to(device)
+            return torch.cat([feat_pad, feat], dim=1)
+
+
 if __name__ == "__main__":
     data_path = "/data/common/LibriTTS_R"
     dataset = LibriTTSRDataset(data_path)
