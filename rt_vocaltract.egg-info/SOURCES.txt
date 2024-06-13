@@ -1,8 +1,0 @@
-pyproject.toml
-setup.cfg
-setup.py
-rt_vocaltract/__init__.py
-rt_vocaltract.egg-info/PKG-INFO
-rt_vocaltract.egg-info/SOURCES.txt
-rt_vocaltract.egg-info/dependency_links.txt
-rt_vocaltract.egg-info/top_level.txt

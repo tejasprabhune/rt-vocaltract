@@ -1,9 +1,0 @@
-Metadata-Version: 2.1
-Name: rt-vocaltract
-Version: 1.0
-Summary: Real-time inversion from speech to EMA
-Author: Tejas Prabhune
-Author-email: prabhune@berkeley.edu
-Classifier: Programming Language :: Python :: 3
-Classifier: Operating System :: OS Independent
-Description-Content-Type: text/markdown
