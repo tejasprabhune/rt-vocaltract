@@ -73,9 +73,14 @@ class Trainer():
         self.config_dir = pathlib.Path(config_dir)
         self.device = device
 
-        self.model.to(self.device)
-        self.discriminator.to(self.device)
-        self.ema_loss.to(self.device)
+        self.model = self.model.to(self.device)
+        self.discriminator = self.discriminator.to(self.device)
+        # self.disc_optimizer = self.disc_optimizer.to(self.device)
+        # self.optimizer = self.optimizer.to(self.device)
+
+        self.ema_loss = self.ema_loss.to(self.device)
+        self.gen_adv_loss = self.gen_adv_loss.to(self.device)
+        self.disc_adv_loss = self.disc_adv_loss.to(self.device)
 
     def train(self):
         epoch_tqdm = tqdm(range(self.epochs))
@@ -108,7 +113,7 @@ class Trainer():
         train_tqdm = tqdm(enumerate(self.train_dataloader))
         train_tqdm.set_description(f"Epoch {epoch}")
         for i, batch in train_tqdm:
-            loss, disc_loss = self.train_step(batch)
+            disc_loss, loss = self.train_step(batch)
             total_train_loss += loss
             total_train_disc_loss += disc_loss
             train_tqdm.set_postfix(loss=loss, disc_loss=disc_loss)
@@ -141,12 +146,12 @@ class Trainer():
     
     @torch.no_grad()
     def val_step(self, batch):
-        return tuple(map(lambda x: x.item(), self.step(batch)))
+        return tuple(map(lambda x: x.item(), self.step(batch, val=True)))
 
-    def step(self, batch):
-        return self.disc_step(batch), self.gen_step(batch)
+    def step(self, batch, val=False):
+        return self.disc_step(batch, val), self.gen_step(batch, val)
 
-    def gen_step(self, batch):
+    def gen_step(self, batch, val=False):
         wav, feat = (
             batch[0].to(self.device), 
             batch[1].to(self.device)
@@ -164,7 +169,10 @@ class Trainer():
         feat_hat = feat_hat.transpose(2, 1)
         ema_loss = self.ema_loss(feat_hat, feat)
 
-        loss = gen_loss + 45 * ema_loss
+        loss = gen_loss + 5 * ema_loss
+
+        if val:
+            return loss
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -173,7 +181,7 @@ class Trainer():
 
         return loss
     
-    def disc_step(self, batch):
+    def disc_step(self, batch, val=False):
         wav, feat = (
             batch[0].to(self.device), 
             batch[1].to(self.device)
@@ -192,6 +200,8 @@ class Trainer():
         real_loss, fake_loss = self.disc_adv_loss(p, p_hat)
         loss = real_loss + fake_loss
 
+        if val:
+            return loss
         self.disc_optimizer.zero_grad()
         loss.backward()
         self.disc_optimizer.step()
@@ -213,8 +223,11 @@ class Trainer():
 
 if __name__ == "__main__":
 
+    device = torch.device("cuda:0")
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", "--config", type=str, required=True)
+    parser.add_argument("--ckpt", type=str, required=False, default=None)
     args = parser.parse_args()
 
     config_dir = pathlib.Path(args.config)
@@ -224,11 +237,12 @@ if __name__ == "__main__":
     train_dataloader = Configs.load_dataloader(config, train_dataset)
     val_dataloader = Configs.load_dataloader(config, val_dataset)
 
-    model = Configs.load_model(config=config)
-    discriminator = Configs.load_discriminator(config=config)
+    model = Configs.load_model(config=config, ckpt=args.ckpt, device=device)
+    discriminator = Configs.load_discriminator(config=config, ckpt=args.ckpt, device=device)
 
     criterions = {
         "l1": torch.nn.L1Loss,
+        "l2": torch.nn.MSELoss,
         "disc_adv": DiscriminatorAdversarialLoss,
         "gen_adv": GeneratorAdversarialLoss
     }
@@ -236,11 +250,11 @@ if __name__ == "__main__":
     gen_adv_loss = Configs.load_criterion(config, criterions, "gen_adv")
     disc_adv_loss = Configs.load_criterion(config, criterions, "disc_adv")
 
-    optimizer = Configs.load_optimizer(config, model)
-    scheduler = Configs.load_scheduler(config, optimizer)
+    optimizer = Configs.load_optimizer(config, model, ckpt=args.ckpt, name="optimizer_state", device=device)
+    scheduler = Configs.load_scheduler(config, optimizer, ckpt=args.ckpt, name="scheduler_state", device=device)
 
-    disc_optimizer = Configs.load_optimizer(config, discriminator)
-    disc_scheduler = Configs.load_scheduler(config, disc_optimizer)
+    disc_optimizer = Configs.load_optimizer(config, discriminator, ckpt=args.ckpt, name="disc_optimizer_state", device=device)
+    disc_scheduler = Configs.load_scheduler(config, disc_optimizer, ckpt=args.ckpt, name="disc_scheduler_state", device=device)
 
     train_steps = len(train_dataloader)
     val_steps = len(val_dataloader)
@@ -261,7 +275,7 @@ if __name__ == "__main__":
         checkpoint_interval=5000,
         config=config,
         config_dir=config_dir,
-        device=0
+        device=device
     )
 
     trainer.train()

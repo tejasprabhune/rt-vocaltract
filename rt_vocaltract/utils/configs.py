@@ -23,7 +23,7 @@ class Configs:
         return yaml.safe_load(config_path.read_text())
 
     @staticmethod
-    def load_model(config: dict, ckpt: str = None) -> torch.nn.Module:
+    def load_model(config: dict, ckpt: str = None, device="cpu") -> torch.nn.Module:
         """
         Load model for training or inference. Defaults to SiameseCNN with no
         model parameters.
@@ -38,23 +38,24 @@ class Configs:
         model_name = config.get("model", "SoundStreamInversion")
         model_params = config.get("model_params", {})
         model = getattr(models, model_name)(**model_params)
-
+        model.to(device)
 
         if ckpt is not None:
             ckpt = pathlib.Path(ckpt)
-            model.load_state_dict(torch.load(ckpt, map_location="cpu")["model_state"])
+            model.load_state_dict(torch.load(ckpt, map_location=device)["model_state"])
         
         return model
     
     @staticmethod
-    def load_discriminator(config: dict, ckpt: str = None) -> torch.nn.Module:
+    def load_discriminator(config: dict, ckpt: str = None, device="cpu") -> torch.nn.Module:
         disc_name = config.get("discriminator", "MelGANMultiScaleDiscriminator")
         disc_params = config.get("discriminator_params", {})
         disc = getattr(models, disc_name)(**disc_params)
+        disc.to(device)
 
         if ckpt is not None:
             ckpt = pathlib.Path(ckpt)
-            disc.load_state_dict(torch.load(ckpt, map_location="cpu")["discriminator_state"])
+            disc.load_state_dict(torch.load(ckpt, map_location=device)["discriminator_state"])
 
         return disc
     
@@ -74,16 +75,24 @@ class Configs:
         return criterions.get(loss)(**config.get("loss_params", {}))
     
     @staticmethod
-    def load_optimizer(config: dict, model: torch.nn.Module, arg: str = "optim_params"):
+    def load_optimizer(config: dict, model: torch.nn.Module, arg: str = "optim_params", ckpt: str = None, name: str = None, device="cpu"):
         optim_params = config.get(arg, {})
         optimizer = torch.optim.Adam(model.parameters(), **optim_params)
+
+        if ckpt is not None:
+            ckpt = pathlib.Path(ckpt)
+            optimizer.load_state_dict(torch.load(ckpt, map_location=device)[name])
 
         return optimizer
     
     @staticmethod
-    def load_scheduler(config: dict, optimizer: torch.optim.Optimizer, arg: str = "sched_params"):
+    def load_scheduler(config: dict, optimizer: torch.optim.Optimizer, arg: str = "sched_params", ckpt: str = None, name: str = None, device="cpu"):
         scheduler_params = config.get(arg, {})
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, **scheduler_params)
+
+        if ckpt is not None:
+            ckpt = pathlib.Path(ckpt)
+            scheduler.load_state_dict(torch.load(ckpt, map_location=device)[name])
 
         return scheduler
     

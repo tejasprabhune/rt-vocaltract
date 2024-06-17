@@ -41,7 +41,10 @@ class LibriTTSRDataset(Dataset):
         ema = feat_dict["ema"]
         ema_len = ema.shape[0]
         periodicity = feat_dict["periodicity"][:ema_len].reshape(-1, 1)
+
         pitch = feat_dict["pitch"][:ema_len].reshape(-1, 1)
+        pitch -= 5.0
+        pitch /= 450.0
 
         feat = np.concatenate([ema, periodicity, pitch], axis=1)
         feat = torch.from_numpy(feat).float()
